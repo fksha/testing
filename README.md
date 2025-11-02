@@ -1,2 +1,2 @@
 # Testing
-testing
+тестирование напряжения с помощью Locust
