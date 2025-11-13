@@ -9,7 +9,7 @@ log_file = 'redfish_test.log'
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Создаем formatter
+# Create formatter
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
 # File handler
@@ -20,29 +20,29 @@ file_handler.setFormatter(formatter)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
-# Добавляем handlers
+# Add handlers
 logger.addHandler(file_handler)
 #logger.addHandler(console_handler)
 
-# Тестовые сообщения
+# Test messages
 logger.info("=" * 50)
-logger.info("НАЧАЛО ТЕСТИРОВАНИЯ REDFISH")
+logger.info("REDFISH TESTING START")
 logger.info("=" * 50)
 
-# Конфигурация
+# Configuration
 BMC_IP = "localhost:2443"
 USERNAME = "root"
 PASSWORD = "0penBmc"
 BASE_URL = f"https://{BMC_IP}"
 
-# Отключение предупреждений о SSL
+# Disable SSL warnings
 requests.packages.urllib3.disable_warnings()
 
 @pytest.fixture(scope="session")
 def auth_session():
     session = None
     try:
-        logger.info("Создание сессии аутентификации...")
+        logger.info("Creating authentication session...")
         session = requests.Session()
         session.verify = False
         
@@ -50,96 +50,96 @@ def auth_session():
         response = session.post(f"{BASE_URL}/redfish/v1/SessionService/Sessions", 
                               json=auth_data, timeout=30)
         
-        logger.info(f"Ответ аутентификации: код {response.status_code}")
+        logger.info(f"Authentication response: code {response.status_code}")
         
         if response.status_code not in [200, 201]:
-            logger.error(f"Ошибка аутентификации: код {response.status_code}")
-            pytest.fail(f"Ошибка аутентификации: код {response.status_code}")
+            logger.error(f"Authentication error: code {response.status_code}")
+            pytest.fail(f"Authentication error: code {response.status_code}")
         
         auth_token = response.headers.get('X-Auth-Token')
         if not auth_token:
-            logger.error("Токен аутентификации не получен")
-            pytest.fail("Токен аутентификации отсутствует в ответе")
+            logger.error("Authentication token not received")
+            pytest.fail("Authentication token missing in response")
         
         session.headers.update({'X-Auth-Token': auth_token})
-        logger.info("Сессия успешно создана")
+        logger.info("Session successfully created")
         
         yield session
         
     except requests.exceptions.Timeout:
-        logger.error("Таймаут при создании сессии")
-        pytest.fail("Таймаут при создании сессии")
+        logger.error("Session creation timeout")
+        pytest.fail("Session creation timeout")
     except requests.exceptions.ConnectionError:
-        logger.error("Ошибка подключения к BMC")
-        pytest.fail("Не удалось подключиться к BMC")
+        logger.error("BMC connection error")
+        pytest.fail("Could not connect to BMC")
     except Exception as e:
-        logger.error(f"Неожиданная ошибка при создании сессии: {e}")
-        pytest.fail(f"Неожиданная ошибка: {e}")
+        logger.error(f"Unexpected error creating session: {e}")
+        pytest.fail(f"Unexpected error: {e}")
     
     finally:
-        # Завершение сессии
+        # Close session
         if session:
             try:
-                logger.info("Завершение сессии...")
+                logger.info("Closing session...")
             except Exception as e:
-                logger.warning(f"Не удалось завершить сессию: {e}")
+                logger.warning(f"Failed to close session: {e}")
 
 def test_authentication(auth_session):
-    """Тест аутентификации в OpenBMC через Redfish API"""
-    logger.info("Запуск теста аутентификации...")
+    """Test OpenBMC authentication via Redfish API"""
+    logger.info("Running authentication test...")
     try:
         response = auth_session.get(f"{BASE_URL}/redfish/v1", timeout=10)
-        logger.info(f"Ответ от Redfish: код {response.status_code}")
+        logger.info(f"Redfish response: code {response.status_code}")
         
         assert response.status_code == 200
-        logger.info("Аутентификация прошла успешно")
+        logger.info("Authentication successful")
         
     except Exception as e:
-        logger.error(f"Ошибка в тесте аутентификации: {e}")
+        logger.error(f"Error in authentication test: {e}")
         raise
 
 def test_system_info(auth_session):
-    """Тест получения информации о системе"""
-    logger.info("Запуск теста информации о системе...")
+    """Test system information retrieval"""
+    logger.info("Running system information test...")
     try:
         response = auth_session.get(f"{BASE_URL}/redfish/v1/Systems/system", timeout=10)
-        logger.info(f"Ответ информации о системе: код {response.status_code}")
+        logger.info(f"System information response: code {response.status_code}")
         
         assert response.status_code == 200
         data = response.json()
         
-        # Более гибкая проверка структуры ответа
+        # More flexible response structure check
         assert "@odata.id" in data
         assert "Actions" in data
         
-        # Проверяем наличие PowerState, но не падаем если его нет
+        # Check for PowerState, but don't fail if it's missing
         power_state = data.get('PowerState')
         if power_state:
-            logger.info(f"PowerState найден: {power_state}")
+            logger.info(f"PowerState found: {power_state}")
         else:
-            logger.warning("PowerState не найден в ответе")
+            logger.warning("PowerState not found in response")
             
     except Exception as e:
-        logger.error(f"Ошибка в тесте информации о системе: {e}")
+        logger.error(f"Error in system information test: {e}")
         raise
 
 def test_power_management(auth_session):
-    logger.info("Запуск теста управления питанием...")
+    logger.info("Running power management test...")
     try:
-        # Получаем информацию о системе
+        # Get system information
         response = auth_session.get(f"{BASE_URL}/redfish/v1/Systems/system", timeout=10)
-        logger.info(f"Информация о системе: код {response.status_code}")
+        logger.info(f"System information: code {response.status_code}")
         
-        # Проверяем доступные действия
+        # Check available actions
         actions = response.json().get("Actions", {})
         reset_action = actions.get("#ComputerSystem.Reset", {})
         target_url = reset_action.get("target")
         
         if not target_url:
-            logger.warning("Действие сброса системы не найдено, пропускаем тест")
+            logger.warning("System reset action not found, skipping test")
             pytest.skip("Reset action not available")
         
-        # Пробуем разные команды питания
+        # Try different power commands
         test_commands = [
             "GracefulRestart", 
             "On", 
@@ -158,35 +158,35 @@ def test_power_management(auth_session):
                     timeout=30
                 )
                 
-                logger.info(f"Команда {reset_type}: код {response.status_code}")
+                logger.info(f"Command {reset_type}: code {response.status_code}")
                 
-                # Принимаем различные ответы
+                # Accept various responses
                 if response.status_code in [200, 202, 204]:
-                    logger.info(f"✓ Команда {reset_type} принята")
+                    logger.info(f"✓ Command {reset_type} accepted")
                     success_found = True
                     break
                 elif response.status_code in [400, 404, 405]:
-                    logger.info(f"Команда {reset_type} не поддерживается: {response.status_code}")
+                    logger.info(f"Command {reset_type} not supported: {response.status_code}")
                     continue
                     
             except Exception as e:
-                logger.warning(f"Ошибка при выполнении {reset_type}: {e}")
+                logger.warning(f"Error executing {reset_type}: {e}")
                 continue
                 
         if not success_found:
-            logger.warning("Ни одна команда питания не была успешной")
-            # Не падаем, а просто предупреждаем
+            logger.warning("No power commands were successful")
+            # Don't fail, just warn
             pytest.skip("No power management commands available in this Redfish implementation")
             
     except Exception as e:
-        logger.error(f"Ошибка в тесте управления питанием: {e}")
+        logger.error(f"Error in power management test: {e}")
         raise
     
 def test_cpu_temperature_redfish(auth_session):
-    logger.info("Запуск теста температуры CPU...")
+    logger.info("Running CPU temperature test...")
     try:
         response = auth_session.get(f"{BASE_URL}/redfish/v1/Chassis/chassis", timeout=10)
-        logger.info(f"Ответ данных шасси: код {response.status_code}")
+        logger.info(f"Chassis data response: code {response.status_code}")
         
         if response.status_code == 200:
             data = response.json()
@@ -198,7 +198,7 @@ def test_cpu_temperature_redfish(auth_session):
                     thermal = thermal_response.json()
             
             temperatures = thermal.get("Temperatures", [])
-            logger.info(f"Найдено температурных датчиков: {len(temperatures)}")
+            logger.info(f"Temperature sensors found: {len(temperatures)}")
             
             cpu_found = False
             for temp in temperatures:
@@ -210,27 +210,27 @@ def test_cpu_temperature_redfish(auth_session):
                     threshold = temp.get('UpperThresholdCritical', 95)
                     
                     if reading <= threshold:
-                        logger.info(f"CPU {name}: {reading}°C (порог: {threshold}°C)")
+                        logger.info(f"CPU {name}: {reading}°C (threshold: {threshold}°C)")
                     else:
-                        logger.error(f"CPU {name}: {reading}°C превышает порог {threshold}°C")
-                        pytest.fail(f"Температура CPU {reading}°C превышает порог {threshold}°C")
+                        logger.error(f"CPU {name}: {reading}°C exceeds threshold {threshold}°C")
+                        pytest.fail(f"CPU temperature {reading}°C exceeds threshold {threshold}°C")
                     break
             
             if not cpu_found:
-                logger.info("CPU датчики не найдены")
+                logger.info("CPU sensors not found")
         else:
-            logger.warning("Не удалось получить данные шасси")
+            logger.warning("Failed to get chassis data")
             
-        logger.info("Тест температуры CPU завершен")
+        logger.info("CPU temperature test completed")
         
     except Exception as e:
-        logger.error(f"Ошибка в тесте температуры CPU: {e}")
+        logger.error(f"Error in CPU temperature test: {e}")
         raise
 
 def test_cpu_sensors_redfish_ipmi(auth_session):
-    logger.info("Запуск теста сравнения датчиков Redfish и IPMI...")
+    logger.info("Running Redfish and IPMI sensor comparison test...")
     try:
-        # Redfish данные
+        # Redfish data
         redfish_temps = []
         response = auth_session.get(f"{BASE_URL}/redfish/v1/Chassis/chassis", timeout=10)
         
@@ -249,9 +249,9 @@ def test_cpu_sensors_redfish_ipmi(auth_session):
                     if temp_value is not None:
                         redfish_temps.append(temp_value)
         
-        logger.info(f"Redfish CPU датчики: {len(redfish_temps)} найдено")
+        logger.info(f"Redfish CPU sensors: {len(redfish_temps)} found")
         
-        # IPMI данные
+        # IPMI data
         ipmi_temps = []
         try:
             result = subprocess.run(
@@ -270,31 +270,29 @@ def test_cpu_sensors_redfish_ipmi(auth_session):
                                 ipmi_temps.append(temp_value)
                         except (ValueError, IndexError):
                             continue
-                logger.info("IPMI команда выполнена успешно")
+                logger.info("IPMI command executed successfully")
             else:
-                logger.warning(f"IPMI команда завершилась с ошибкой: {result.stderr}")
+                logger.warning(f"IPMI command failed: {result.stderr}")
                 
         except subprocess.TimeoutExpired:
-            logger.warning("Таймаут выполнения IPMI команды")
+            logger.warning("IPMI command timeout")
         except Exception as e:
-            logger.warning(f"Ошибка выполнения IPMI: {e}")
+            logger.warning(f"IPMI execution error: {e}")
         
-        logger.info(f"IPMI CPU датчики: {len(ipmi_temps)} найдено")
+        logger.info(f"IPMI CPU sensors: {len(ipmi_temps)} found")
         
-        # Анализ результатов
+        # Result analysis
         if redfish_temps and ipmi_temps:
-            logger.info("Данные найдены в Redfish и IPMI")
+            logger.info("Data found in both Redfish and IPMI")
         elif redfish_temps:
-            logger.info("Данные найдены только в Redfish")
+            logger.info("Data found only in Redfish")
         elif ipmi_temps:
-            logger.info("Данные найдены только в IPMI") 
+            logger.info("Data found only in IPMI") 
         else:
-            logger.info("Данные не найдены ни в Redfish, ни в IPMI")
+            logger.info("No data found in either Redfish or IPMI")
             
-        logger.info("Тест сравнения датчиков завершен")
+        logger.info("Sensor comparison test completed")
             
     except Exception as e:
-        logger.error(f"Ошибка в тесте сравнения датчиков: {e}")
+        logger.error(f"Error in sensor comparison test: {e}")
         raise
-
-

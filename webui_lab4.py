@@ -9,48 +9,48 @@ import sys
 def setup_driver():
     options = Options()
     
-    # Исправляем путь к Chromium
+    # Fix Chromium path
     if os.path.exists('/usr/bin/chromium'):
         options.binary_location = '/usr/bin/chromium'
     else:
         options.binary_location = '/usr/bin/chromium-browser'
     
     options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')  # Раскомментируем
+    options.add_argument('--disable-dev-shm-usage')  # Uncommented
     options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--allow-insecure-localhost')  # Раскомментируем
-    options.add_argument('--headless')  # Добавляем для CI
+    options.add_argument('--allow-insecure-localhost')  # Uncommented
+    options.add_argument('--headless')  # Added for CI
     options.add_argument('--disable-gpu')
     options.add_argument('--window-size=1920,1080')
     
-    # Исправляем путь к chromedriver
+    # Fix chromedriver path
     if os.path.exists('/usr/bin/chromedriver'):
         service = Service('/usr/bin/chromedriver')
     else:
-        # Пробуем найти chromedriver в других местах
+        # Try to find chromedriver in other locations
         service = Service('/usr/lib/chromium-browser/chromedriver')
     
     try:
         driver = webdriver.Chrome(service=service, options=options)
-        driver.implicitly_wait(10)  # Добавляем неявное ожидание
+        driver.implicitly_wait(10)  # Add implicit wait
         return driver
     except Exception as e:
-        print(f"Ошибка при создании драйвера: {e}")
-        # Fallback: пробуем без указания service
+        print(f"Error creating driver: {e}")
+        # Fallback: try without specifying service
         try:
             driver = webdriver.Chrome(options=options)
             driver.implicitly_wait(10)
             return driver
         except Exception as e2:
-            print(f"Fallback также не сработал: {e2}")
+            print(f"Fallback also failed: {e2}")
             raise
 
 def login(driver, username, password):
     try:
         driver.get("https://localhost:2443")
-        time.sleep(8)  # Увеличиваем время ожидания
+        time.sleep(8)  # Increase wait time
         
-        # Ждем появления полей ввода
+        # Wait for input fields to appear
         username_field = driver.find_element(By.CSS_SELECTOR, "#username")
         password_field = driver.find_element(By.CSS_SELECTOR, "#password")
         
@@ -59,7 +59,7 @@ def login(driver, username, password):
         password_field.clear()
         password_field.send_keys(password)
         
-        # Поиск кнопки входа с обработкой исключений
+        # Find login button with exception handling
         button_found = False
         for selector in ["button[type='submit']", "button", "input[type='submit']", ".btn-primary"]:
             try:
@@ -72,7 +72,7 @@ def login(driver, username, password):
                 continue
         
         if not button_found:
-            # Пробуем найти по тексту
+            # Try to find by text
             try:
                 buttons = driver.find_elements(By.TAG_NAME, "button")
                 for button in buttons:
@@ -85,31 +85,31 @@ def login(driver, username, password):
         
         time.sleep(5)
         
-        # Проверяем успешность логина
+        # Check login success
         current_url = driver.current_url.lower()
         page_source = driver.page_source.lower()
         
-        # Если остались на странице логина или есть сообщение об ошибке
+        # If still on login page or error message is present
         if "login" in current_url or "error" in page_source or "invalid" in page_source:
             return False
         return True
         
     except Exception as e:
-        print(f"Ошибка при логине: {e}")
+        print(f"Login error: {e}")
         return False
 
 def test_correct_login():
     driver = setup_driver()
     try:
-        print("Тест: Успешная авторизация")
+        print("Test: Successful authorization")
         success = login(driver, "root", "0penBmc")
         if success:
-            print("✓ Успешная авторизация прошла")
+            print("✓ Successful authorization passed")
         else:
-            print("❌ Успешная авторизация не удалась")
+            print("❌ Successful authorization failed")
         return success
     except Exception as e:
-        print(f"❌ Ошибка в тесте успешной авторизации: {e}")
+        print(f"❌ Error in successful authorization test: {e}")
         return False
     finally:
         driver.quit()
@@ -117,15 +117,15 @@ def test_correct_login():
 def test_wrong_password():
     driver = setup_driver()
     try:
-        print("Тест: Неверный пароль")
+        print("Test: Wrong password")
         success = not login(driver, "root", "wrong_password")
         if success:
-            print("✓ Неверный пароль правильно отклонен")
+            print("✓ Wrong password correctly rejected")
         else:
-            print("❌ Система приняла неверный пароль")
+            print("❌ System accepted wrong password")
         return success
     except Exception as e:
-        print(f"❌ Ошибка в тесте неверного пароля: {e}")
+        print(f"❌ Error in wrong password test: {e}")
         return False
     finally:
         driver.quit()
@@ -133,127 +133,127 @@ def test_wrong_password():
 def test_account_lockout():
     driver = setup_driver()
     try:
-        print("Тест: Блокировка учетной записи")
-        # 3 неудачные попытки входа
+        print("Test: Account lockout")
+        # 3 failed login attempts
         for i in range(3):
             result = login(driver, "testuser", f"wrong_pass_{i}")
-            print(f"Попытка входа {i+1}/3: {'Успех' if result else 'Неудача'}")
-            if i < 2:  # Даем время между попытками
+            print(f"Login attempt {i+1}/3: {'Success' if result else 'Failure'}")
+            if i < 2:  # Give time between attempts
                 time.sleep(2)
         
-        # Проверка блокировки
+        # Check lockout
         success = not login(driver, "testuser", "user10")
         if success:
-            print("✓ Учетная запись заблокирована после 3 неудачных попыток")
+            print("✓ Account locked after 3 failed attempts")
         else:
-            print("❌ Учетная запись не заблокирована")
+            print("❌ Account not locked")
         return success
     except Exception as e:
-        print(f"❌ Ошибка в тесте блокировки: {e}")
+        print(f"❌ Error in lockout test: {e}")
         return False
     finally:
         driver.quit()
 
 def test_redfish_api_access():
-    """Тест доступа к Redfish API"""
+    """Test Redfish API access"""
     driver = setup_driver()
     try:
-        print("Тест: Доступ к Redfish API")
+        print("Test: Redfish API access")
         if not login(driver, "root", "0penBmc"):
-            print("❌ Не удалось авторизоваться для проверки Redfish")
+            print("❌ Failed to authorize for Redfish check")
             return False
         
-        # Проверяем основной Redfish endpoint
+        # Check main Redfish endpoint
         driver.get("https://localhost:2443/redfish/v1/")
         time.sleep(8)
         
-        # Проверяем что Redfish работает
+        # Check that Redfish is working
         page_source = driver.page_source.lower()
         if "redfish" in page_source and "v1" in page_source:
-            print("✓ Redfish API доступен")
+            print("✓ Redfish API available")
             return True
         else:
-            print("❌ Redfish API не доступен или неверный ответ")
+            print("❌ Redfish API not available or invalid response")
             return False
             
     except Exception as e:
-        print(f"❌ Ошибка при проверке Redfish API: {e}")
+        print(f"❌ Error checking Redfish API: {e}")
         return False
     finally:
         driver.quit()
 
 def test_power_management():
-    """Тест управления питанием сервера"""
+    """Test server power management"""
     driver = setup_driver()
     try:
-        print("Тест: Управление питанием сервера")
+        print("Test: Server power management")
         if not login(driver, "root", "0penBmc"):
-            print("❌ Не удалось авторизоваться для проверки управления питанием")
+            print("❌ Failed to authorize for power management check")
             return False
         
-        # Проверяем раздел управления питанием
+        # Check power management section
         driver.get("https://localhost:2443/redfish/v1/Systems/system")
         time.sleep(10)
         
         page_text = driver.page_source.lower()
         
-        # Проверяем наличие элементов управления питанием
+        # Check for power management elements
         power_indicators = ["power", "reset", "on", "off", "shutdown", "restart"]
         found_indicators = [indicator for indicator in power_indicators if indicator in page_text]
         
         if found_indicators:
-            print(f"✓ Найдены элементы управления питанием: {found_indicators}")
+            print(f"✓ Found power management elements: {found_indicators}")
             return True
         else:
-            print("❌ Управление питанием не найдено")
-            print("Содержимое страницы:", page_text[:500])  # Логируем первые 500 символов для отладки
+            print("❌ Power management not found")
+            print("Page content:", page_text[:500])  # Log first 500 characters for debugging
             return False
             
     except Exception as e:
-        print(f"❌ Ошибка при проверке управления питанием: {e}")
+        print(f"❌ Error checking power management: {e}")
         return False
     finally:
         driver.quit()
 
 
 if __name__ == "__main__":
-    # Создаем лог-файл для Jenkins
+    # Create log file for Jenkins
     original_stdout = sys.stdout
     try:
         with open('webui-test-log.txt', 'w', encoding='utf-8') as f:
             sys.stdout = f
             
             tests = [
-                ("Успешная авторизация", test_correct_login),
-                ("Неверный пароль", test_wrong_password),
-                ("Блокировка учетной записи", test_account_lockout),
-                ("Доступ к Redfish API", test_redfish_api_access),
-                ("Управление питанием сервера", test_power_management)  
+                ("Successful authorization", test_correct_login),
+                ("Wrong password", test_wrong_password),
+                ("Account lockout", test_account_lockout),
+                ("Redfish API access", test_redfish_api_access),
+                ("Server power management", test_power_management)  
             ]
             
-            print("=== ЗАПУСК WEBUI ТЕСТОВ ===")
-            print(f"Время начала: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print("=== WEBUI TESTS START ===")
+            print(f"Start time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
             passed = 0
             
             for i, (test_name, test_func) in enumerate(tests, 1):
                 try:
-                    print(f"\n--- Тест {i}: {test_name} ---")
+                    print(f"\n--- Test {i}: {test_name} ---")
                     result = test_func()
                     status = "✅ PASSED" if result else "❌ FAILED"
-                    print(f"Результат: {status}")
+                    print(f"Result: {status}")
                     if result:
                         passed += 1
                 except Exception as e:
-                    print(f"❌ FAILED - Критическая ошибка: {e}")
+                    print(f"❌ FAILED - Critical error: {e}")
             
-            print(f"\n=== ИТОГ: {passed}/{len(tests)} тестов пройдено ===")
-            print(f"Время завершения: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"\n=== SUMMARY: {passed}/{len(tests)} tests passed ===")
+            print(f"End time: {time.strftime('%Y-%m-%d %H:%M:%S')}")
             
     except Exception as e:
-        print(f"Ошибка при записи лога: {e}")
+        print(f"Error writing log: {e}")
     finally:
         sys.stdout = original_stdout
     
-    # Также выводим результат в консоль
-    print(f"WebUI тесты завершены. Результаты сохранены в webui-test-log.txt")
-    print(f"ИТОГ: {passed}/{len(tests)} тестов пройдено")
+    # Also print result to console
+    print(f"WebUI tests completed. Results saved to webui-test-log.txt")
+    print(f"SUMMARY: {passed}/{len(tests)} tests passed")
