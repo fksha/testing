@@ -1,7 +1,7 @@
 
 from locust import HttpUser, task, between
 
-BMC_IP = "host.docker.internal:2443" 
+BMC_IP = "localhost:2443"  
 BMC_USER = "root"
 BMC_PASS = "0penBmc"
 
