@@ -2,10 +2,12 @@ pipeline {
     agent any
     
     stages {
-        stage('Установка зависимостей') {
+        stage('Установка Python и зависимостей') {
             steps {
                 sh '''
-                    echo "=== УСТАНОВКА ЗАВИСИМОСТЕЙ ==="
+                    echo "=== УСТАНОВКА PYTHON И ЗАВИСИМОСТЕЙ ==="
+                    apt-get update
+                    apt-get install -y python3 python3-pip
                     pip3 install pytest requests selenium locust
                 '''
             }
@@ -46,17 +48,7 @@ pipeline {
     
     post {
         always {
-            sh '''
-                echo "=== СОХРАНЕНИЕ АРТЕФАКТОВ ==="
-                ls -la *.log *.html 2>/dev/null || echo "Файлы логов не найдены"
-            '''
             archiveArtifacts '**/*.log, **/*.html'
-        }
-        success {
-            echo "✅ Все тесты успешно завершены!"
-        }
-        failure {
-            echo "❌ Некоторые тесты завершились с ошибками"
         }
     }
 }
