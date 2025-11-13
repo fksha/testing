@@ -16,7 +16,7 @@ def setup_driver():
     return webdriver.Chrome(service=service, options=options)
 
 def login(driver, username, password):
-    driver.get("https://localhost:2443")
+    driver.get("https://host.docker.internal:2443")
     time.sleep(6)
     
     driver.find_element(By.CSS_SELECTOR, "#username").send_keys(username)
@@ -71,7 +71,7 @@ def test_redfish_api_access():
             return False
         
         # Проверяем основной Redfish endpoint
-        driver.get("https://localhost:2443/redfish/v1/")
+        driver.get("https://host.docker.internal:2443/redfish/v1/")
         time.sleep(6)
         # Простая проверка что Redfish работает
         if "redfish" in driver.page_source.lower():
@@ -95,7 +95,7 @@ def test_power_management():
             return False
         
         # Проверяем раздел управления питанием
-        driver.get("https://localhost:2443/redfish/v1/Systems/system")
+        driver.get("https://host.docker.internal:2443/redfish/v1/Systems/system")
         time.sleep(15)
         
         page_text = driver.page_source.lower()

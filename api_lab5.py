@@ -30,7 +30,7 @@ logger.info("НАЧАЛО ТЕСТИРОВАНИЯ REDFISH")
 logger.info("=" * 50)
 
 # Конфигурация
-BMC_IP = "localhost:2443"
+BMC_IP = "host.docker.internal:2443"  # вместо localhost:2443
 USERNAME = "root"
 PASSWORD = "0penBmc"
 BASE_URL = f"https://{BMC_IP}"
