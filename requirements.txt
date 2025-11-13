@@ -3,3 +3,4 @@ requests
 selenium
 locust
 pytest-html
+webdriver-manager
