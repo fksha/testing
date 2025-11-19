@@ -20,12 +20,12 @@ pipeline {
             steps {
                 sh '''
                     echo "=== ЗАПУСК QEMU С OPENBMC ==="
-                    qemu-system-arm -m 256 -M romulus-bmc -nographic \
+                    QEMU_PID=$(nohup qemu-system-arm -m 256 -M romulus-bmc -nographic \
                         -drive file=obmc-phosphor-image-romulus-20250906002013.static.mtd,format=raw,if=mtd \
                         -net nic \
-                        -net user,hostfwd=:0.0.0.0:2222-:22,hostfwd=:0.0.0.0:2443-:443,hostfwd=udp:0.0.0.0:2623-:623,hostname=qemu &
+                        -net user,hostfwd=:0.0.0.0:2222-:22,hostfwd=:0.0.0.0:2443-:443,hostfwd=udp:0.0.0.0:2623-:623,hostname=qemu \
+                        > qemu.log 2>&1 & echo $!)
                     
-                    QEMU_PID=$!
                     echo $QEMU_PID > qemu.pid
                     echo "QEMU запущен, PID: $QEMU_PID"
                     
