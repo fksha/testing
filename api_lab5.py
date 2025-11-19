@@ -9,10 +9,8 @@ log_file = 'redfish_test.log'
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Create formatter
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-# File handler
 file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
 file_handler.setFormatter(formatter)
 
@@ -20,22 +18,18 @@ file_handler.setFormatter(formatter)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(formatter)
 
-# Add handlers
 logger.addHandler(file_handler)
 #logger.addHandler(console_handler)
 
-# Test messages
 logger.info("=" * 50)
 logger.info("REDFISH TESTING START")
 logger.info("=" * 50)
 
-# Configuration
 BMC_IP = "localhost:2443"
 USERNAME = "root"
 PASSWORD = "0penBmc"
 BASE_URL = f"https://{BMC_IP}"
 
-# Disable SSL warnings
 requests.packages.urllib3.disable_warnings()
 
 @pytest.fixture(scope="session")
@@ -77,7 +71,6 @@ def auth_session():
         pytest.fail(f"Unexpected error: {e}")
     
     finally:
-        # Close session
         if session:
             try:
                 logger.info("Closing session...")
@@ -108,11 +101,9 @@ def test_system_info(auth_session):
         assert response.status_code == 200
         data = response.json()
         
-        # More flexible response structure check
         assert "@odata.id" in data
         assert "Actions" in data
         
-        # Check for PowerState, but don't fail if it's missing
         power_state = data.get('PowerState')
         if power_state:
             logger.info(f"PowerState found: {power_state}")
@@ -126,11 +117,9 @@ def test_system_info(auth_session):
 def test_power_management(auth_session):
     logger.info("Running power management test...")
     try:
-        # Get system information
         response = auth_session.get(f"{BASE_URL}/redfish/v1/Systems/system", timeout=10)
         logger.info(f"System information: code {response.status_code}")
         
-        # Check available actions
         actions = response.json().get("Actions", {})
         reset_action = actions.get("#ComputerSystem.Reset", {})
         target_url = reset_action.get("target")
@@ -138,8 +127,7 @@ def test_power_management(auth_session):
         if not target_url:
             logger.warning("System reset action not found, skipping test")
             pytest.skip("Reset action not available")
-        
-        # Try different power commands
+
         test_commands = [
             "GracefulRestart", 
             "On", 
@@ -160,7 +148,6 @@ def test_power_management(auth_session):
                 
                 logger.info(f"Command {reset_type}: code {response.status_code}")
                 
-                # Accept various responses
                 if response.status_code in [200, 202, 204]:
                     logger.info(f"✓ Command {reset_type} accepted")
                     success_found = True
@@ -175,7 +162,6 @@ def test_power_management(auth_session):
                 
         if not success_found:
             logger.warning("No power commands were successful")
-            # Don't fail, just warn
             pytest.skip("No power management commands available in this Redfish implementation")
             
     except Exception as e:
@@ -230,7 +216,7 @@ def test_cpu_temperature_redfish(auth_session):
 def test_cpu_sensors_redfish_ipmi(auth_session):
     logger.info("Running Redfish and IPMI sensor comparison test...")
     try:
-        # Redfish data
+        # Redfish
         redfish_temps = []
         response = auth_session.get(f"{BASE_URL}/redfish/v1/Chassis/chassis", timeout=10)
         
@@ -251,7 +237,7 @@ def test_cpu_sensors_redfish_ipmi(auth_session):
         
         logger.info(f"Redfish CPU sensors: {len(redfish_temps)} found")
         
-        # IPMI data
+        # IPMI
         ipmi_temps = []
         try:
             result = subprocess.run(
@@ -281,7 +267,6 @@ def test_cpu_sensors_redfish_ipmi(auth_session):
         
         logger.info(f"IPMI CPU sensors: {len(ipmi_temps)} found")
         
-        # Result analysis
         if redfish_temps and ipmi_temps:
             logger.info("Data found in both Redfish and IPMI")
         elif redfish_temps:

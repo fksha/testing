@@ -20,36 +20,23 @@ pipeline {
             steps {
                 sh '''
                     echo "=== ЗАПУСК QEMU С OPENBMC ==="
-                    # Запускаем QEMU в фоновом режиме
-                    QEMU_PID=$(nohup qemu-system-arm -m 256 -M romulus-bmc -nographic \
+                    qemu-system-arm -m 256 -M romulus-bmc -nographic \
                         -drive file=obmc-phosphor-image-romulus-20250906002013.static.mtd,format=raw,if=mtd \
                         -net nic \
-                        -net user,hostfwd=:0.0.0.0:2222-:22,hostfwd=:0.0.0.0:2443-:443,hostfwd=udp:0.0.0.0:2623-:623,hostname=qemu \
-                        > qemu.log 2>&1 & echo $!)
+                        -net user,hostfwd=:0.0.0.0:2222-:22,hostfwd=:0.0.0.0:2443-:443,hostfwd=udp:0.0.0.0:2623-:623,hostname=qemu &
                     
+                    QEMU_PID=$!
                     echo $QEMU_PID > qemu.pid
                     echo "QEMU запущен, PID: $QEMU_PID"
                     
-                    # Ждем загрузки OpenBMC
-                    echo "Ожидание загрузки OpenBMC (это может занять 2-3 минуты)..."
+                    echo "Ожидание загрузки OpenBMC..."
                     timeout 180 bash -c '
-                        for i in {1..36}; do
-                            if curl -k -f https://localhost:2443/redfish/v1 >/dev/null 2>&1; then
-                                echo "✅ OpenBMC доступен через $i попыток!"
-                                exit 0
-                            fi
-                            echo "⏳ Ждем OpenBMC... ($i/36)"
+                        while ! curl -k -f https://localhost:2443/redfish/v1 >/dev/null 2>&1; do
                             sleep 5
                         done
-                        echo "⚠️ OpenBMC не стал доступен за 3 минуты, продолжаем выполнение"
-                        exit 0
                     '
+                    echo "OpenBMC ДОСТУПЕН"
                 '''
-            }
-            post {
-                always {
-                    archiveArtifacts 'qemu.log, qemu.pid'
-                }
             }
         }
         
@@ -89,13 +76,8 @@ pipeline {
                 sh '''
                     echo "=== НАГРУЗОЧНОЕ ТЕСТИРОВАНИЕ ==="
                     . venv/bin/activate
-                    timeout 60 locust -f locustfile.py --headless -u 5 -r 1 --run-time 30s --html=loadtest-report.html || echo "Нагрузочное тестирование завершилось"
+                    timeout 60 locust -f locustfile.py --headless -u 5 -r 1 --run-time 30s || echo "Нагрузочное тестирование завершилось"
                 '''
-            }
-            post {
-                always {
-                    archiveArtifacts 'loadtest-report.html'
-                }
             }
         }
         
@@ -127,10 +109,10 @@ pipeline {
             archiveArtifacts '**/*.html, **/*.log, **/*.txt'
         }
         success {
-            echo "✅ Все этапы пайплайна выполнены успешно!"
+            echo "Все этапы пайплайна выполнены успешно!"
         }
         failure {
-            echo "❌ Пайплайн завершился с ошибками"
+            echo "Пайплайн завершился с ошибками"
         }
     }
 }

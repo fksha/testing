@@ -19,7 +19,7 @@ class OpenBMCUser(HttpUser):
     def get_system_info(self):
         self.client.get("/redfish/v1/Systems/system", name="System Info")
 
-    @task(1)  # вес 1
+    @task(1)  
     def get_power_state(self):
         with self.client.get(
             "/redfish/v1/Systems/system",
